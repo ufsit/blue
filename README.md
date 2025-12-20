@@ -1,2 +1,2 @@
 # blue
-Competition Tools
+Competition Tools for UF CCDC.
