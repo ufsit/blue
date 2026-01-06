@@ -7,3 +7,4 @@ Competition Tools for UF CCDC.
  * `webandaid` - The Webandaid tool. Licensed under Apache 2.0 (see `webandaid/README.md` for more details)
  * `logging` - Our scripts to set up the ELK stack
  * `injects` - Templates for inject tasks
+ * `windows_hardening` - Windows scripts to run at the start to harden the machine faster
