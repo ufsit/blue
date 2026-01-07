@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # install curl
-if ! command -v curl &> /dev/null
-then
+if ! command -v curl &> /dev/null; then
     if command -v apt-get &>/dev/null; then
 		sudo apt-get update && sudo apt-get install -y --reinstall curl
 	elif command -v yum &>/dev/null; then
@@ -18,8 +17,11 @@ then
 		echo "Could not determine a package manager."
 		exit 1
 	fi
-else
+fi
 # get docker
+if command -v docker &>/dev/null; then
+	echo "docker here"
+else
 	curl -fsSL https://get.docker.com -o get-docker.sh
 	sh get-docker.sh
 fi

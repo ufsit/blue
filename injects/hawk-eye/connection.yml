@@ -31,15 +31,15 @@ sources:
 #        - .docx
   mysql:
     mysql_example:
-      host: localhost
+      host: host.docker.internal
       port: 3306
       user: catcher
       password: H@ckFr0ntJ@ck
       database: todo_allsafe
 #      limit_start: 0   # Specify the starting limit for the range
 #      limit_end: 500   # Specify the ending limit for the range
-#      tables:
-#        - table1
+      tables:
+        - pii
 #        - table2
 #      exclude_columns:
 #         - column1
@@ -79,9 +79,9 @@ sources:
 #        - private
         - venv
         - node_modules
-		- dpkg
+        - dpkg
         - apt
-  
+
 # gdrive:
 #    drive_example:
 #      folder_name:
