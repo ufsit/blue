@@ -67,7 +67,7 @@ EOL
     zypper --non-interactive install filebeat auditbeat packetbeat curl > /dev/null
   elif command -v apk > /dev/null 2>&1; then
     apk update > /dev/null 2>&1 && apk add curl > /dev/null 2>&1
-    curl -L -O -s https://github.com/ufsit/shreksophone1/raw/refs/heads/main/alpine-beats.tar.gz
+    # curl -L -O -s https://github.com/ufsit/shreksophone1/raw/refs/heads/main/alpine-beats.tar.gz
     tar xzf alpine-beats.tar.gz
     rm alpine-beats.tar.gz
     for beat in auditbeat filebeat packetbeat; do
@@ -227,7 +227,7 @@ for beat in auditbeat filebeat packetbeat; do
     printf "Output test failed for $beat\n"
   fi
 done
-curl -q https://raw.githubusercontent.com/ufsit/shreksophone1/refs/heads/main/rules.conf -o /etc/auditbeat/audit.rules.d/rules.conf
+# curl -q https://raw.githubusercontent.com/ufsit/shreksophone1/refs/heads/main/rules.conf -o /etc/auditbeat/audit.rules.d/rules.conf
 
 printf "Starting beats...\n"
 
