@@ -1,0 +1,1 @@
+docker run -it --rm -v /home/results:/app/results -v /home/blue/injects/hawk-eye/connection.yml:/app/connection.yml -v /home/blue/injects/hawk-eye/fingerprint.yml:/app/fingerprint.yml --add-host=host.docker.internal:host-gateway --connection /app/connection.yml --fingerprint /app/fingerprint.yml
