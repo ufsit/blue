@@ -84,7 +84,9 @@ printf "Press enter when you can log into the dashboard\n"
 read -r hold
 
 printf "Uploading Alerts to Dashboard"
-# curl -L -O -s "https://github.com/ufsit/shreksophone1/raw/refs/heads/main/Alerting.ndjson"
+if [ ! -e "./Alerting.ndjson" ]; then
+  curl -L -O -s "https://github.com/ufsit/blue/raw/refs/heads/main/logging/Alerting.ndjson"
+fi
 curl -k -X POST -u elastic:$pass "http://$ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
 rm Alerting.ndjson
 
