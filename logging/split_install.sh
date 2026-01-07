@@ -31,8 +31,10 @@ printf "Elasticsearch Server ip: "
 read -r ip
 printf "Kibana Dashboard ip: "
 read -r remote_ip
-printf "Remote Machine Username: "
-read -r username
+printf "Kibana Machine Username: "
+read -r remote_user
+printf "Kibana Machine Password"
+read -r remote_pass
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -42,7 +44,7 @@ if command -v apt > /dev/null 2>&1; then
   echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list > /dev/null
   sudo apt-get update -y > /dev/null
   printf "\nDownloading elasticsearch\n\n"
-  sudo apt-get install elasticsearch > /dev/null &
+  sudo apt-get install -y elasticsearch > /dev/null &
   spinner $! "Installing"
 fi
 
@@ -56,12 +58,13 @@ pass=$(echo y | sudo /usr/share/elasticsearch/bin/elasticsearch-reset-password -
 printf "\n"
 token=$(sudo /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana)
 
-scp split_install_part2.sh "$username@$remote_ip":~/split_install_part2.sh
-ssh $username@$remote_ip "sh ~/split_install_part2.sh" <<EOF
+scp split_install_part2.sh "$remote_user@$remote_ip":~/split_install_part2.sh
+ssh $remote_user@$remote_ip "sh ~/split_install_part2.sh" <<EOF
 $ip
 $remote_ip
 $pass
 $token
+$remote_pass
 EOF
 
 printf "Paste Printed out Fingerprint: \n"

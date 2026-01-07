@@ -31,6 +31,9 @@ read -r ip
 read -r remote_ip
 read -r pass
 read -r token
+read -r sudo_pass
+
+echo $sudo_pass | sudo -S -v
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -40,7 +43,7 @@ if command -v apt > /dev/null 2>&1; then
   echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list > /dev/null
   sudo apt-get update -y > /dev/null
   printf "\nDownloading Kibana\n\n"
-  sudo apt-get install kibana > /dev/null &
+  sudo apt-get install -y kibana > /dev/null &
   spinner $! "Installing"
 fi
 
