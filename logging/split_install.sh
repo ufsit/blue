@@ -33,8 +33,8 @@ printf "Kibana Dashboard ip: "
 read -r remote_ip
 printf "Kibana Machine Username: "
 read -r remote_user
-printf "Kibana Machine Password"
-read -r remote_pass
+printf "Kibana Machine Password: "
+read -rs remote_pass
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -81,6 +81,7 @@ $ip
 $remote_ip
 $pass
 $token
+$remote_pass
 EOF
 
 printf "Paste Printed out Fingerprint: \n"
