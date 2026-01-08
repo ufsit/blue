@@ -103,6 +103,7 @@ sources:
         - node_modules
         - dpkg
         - apt
+        - snapd
         
     varlog:
       path: /var/log
@@ -111,6 +112,7 @@ sources:
         - node_modules
         - dpkg
         - apt
+        - snapd
         
     tmp:
       path: /tmp
