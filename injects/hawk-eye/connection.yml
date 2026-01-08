@@ -29,17 +29,31 @@ sources:
 #      exclude_patterns:
 #        - .pdf
 #        - .docx
-  mysql:
-    mysql_example:
-      host: host.docker.internal
-      port: 3306
-      user: catcher
-      password: H@ckFr0ntJ@ck
-      database: todo_allsafe
+#  mysql:
+#    mysql_db1:
+#      host: localhost
+#      port: 3306
+#      user: catcher
+#      password: USER_PASSWORD
+#      database: DATABASE_NAME
 #      limit_start: 0   # Specify the starting limit for the range
 #      limit_end: 500   # Specify the ending limit for the range
-      tables:
-        - pii
+#      tables:
+#        - table1
+#        - table2
+#      exclude_columns:
+#         - column1
+#         - column2
+#    mysql_db2:
+#      host: localhost
+#      port: 3306
+#      user: catcher
+#      password: USER_PASSWORD
+#      database: DATABASE_NAME2
+#      limit_start: 0   # Specify the starting limit for the range
+#      limit_end: 500   # Specify the ending limit for the range
+#      tables:
+#        - table1
 #        - table2
 #      exclude_columns:
 #         - column1
@@ -59,7 +73,7 @@ sources:
 #  mongodb:
 #    mongodb_example:
 #      uri: YOUR_MONGODB_URI
-#      host: YOUR_MONGODB_HOST
+#      host: localhost
 #      port: YOUR_MONGODB_PORT
 #      username: YOUR_MONGODB_USERNAME
 #      password: YOUR_MONGODB_PASSWORD
@@ -71,7 +85,7 @@ sources:
 #        - collection1
 #        - collection2
   fs:
-    local_files:
+    home:
       path: /home
       exclude_patterns:
 #        - .pdf
@@ -81,6 +95,62 @@ sources:
         - node_modules
         - dpkg
         - apt
+
+    varlib:
+      path: /var/lib
+      exclude_patterns:
+        - venv
+        - node_modules
+        - dpkg
+        - apt
+        
+    varlog:
+      path: /var/log
+      exclude_patterns:
+        - venv
+        - node_modules
+        - dpkg
+        - apt
+        
+    tmp:
+      path: /tmp
+      exclude_patterns:
+        - venv
+        - node_modules
+        - dpkg
+        - apt
+        
+#    backup:
+#      path: /backup
+#      exclude_patterns:
+#        - venv
+#        - node_modules
+#        - dpkg
+#        - apt
+#        
+#    varwww:
+#      path: /var/www
+#      exclude_patterns:
+#        - venv
+#        - node_modules
+#        - dpkg
+#        - apt
+#        
+#    usrsharenginx:
+#      path: /usr/share/nginx
+#      exclude_patterns:
+#        - venv
+#        - node_modules
+#        - dpkg
+#        - apt
+        
+# couchdb:
+#    couch1:
+#      host: COUCHDB_HOST
+#      port: 5984
+#      username: COUCHDB_USERNAME
+#      password: COUCHDB_PASSWORD
+#      database: COUCHDB_DB_NAME
 
 # gdrive:
 #    drive_example:
