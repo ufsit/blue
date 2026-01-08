@@ -34,6 +34,16 @@ read -r token
 read -r sudo_pass
 
 echo $sudo_pass | sudo -S -v
+(
+  while true; do
+    sudo -n true
+    sleep 60
+  done
+) &
+SUDO_KEEPALIVE_PID=$!
+
+trap 'kill $SUDO_KEEPALIVE_PID' EXIT
+
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -53,13 +63,13 @@ sudo /usr/share/kibana/bin/kibana-encryption-keys generate | grep xpack.*: | sud
 sudo systemctl enable --now kibana > /dev/null 2>&1 &
 spinner $! "Starting kibana"
 
-sudo systemctl status kibana | grep "$remote_ip:5601" > /dev/null
+systemctl status kibana | grep "$remote_ip:5601" > /dev/null
 while [ $? -ne 0 ]; do
-  sudo systemctl status kibana | grep "code=" > /dev/null
+  systemctl status kibana | grep "code=" > /dev/null
 done &
 spinner $! "Waiting"
 
-code=$(sudo systemctl status kibana | grep "code=" | awk -F' to ' '{print $2}')
+code=$(systemctl status kibana | grep "code=" | awk -F' to ' '{print $2}')
 
 printf "Finished setting up kibana and elasticsearch\n"
 printf "Navigate to $code and paste the enrollment token to complete the script\n"

@@ -82,4 +82,4 @@ fi
 curl -k -X POST -u elastic:$pass "http://$remote_ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
 rm Alerting.ndjson
 
-sudo sh linux_agent.sh $ip $finger $pass
+sudo sh linux_agent.sh $ip $kibana_ip $finger $pass
