@@ -46,6 +46,22 @@ if command -v apt > /dev/null 2>&1; then
   printf "\nDownloading elasticsearch\n\n"
   sudo apt-get install -y elasticsearch > /dev/null &
   spinner $! "Installing"
+elif command -v yum > /dev/null 2>&1; then
+  printf "Installing dependancies..."
+  printf "\n"
+  sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+  sudo cat >> /etc/yum.repos.d/elastic.repo << EOL
+[elastic-8.x]
+name=Elastic repository for 8.x packages
+baseurl=https://artifacts.elastic.co/packages/8.x/yum
+gpgcheck=1
+gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+enabled=1
+autorefresh=1
+type=rpm-md
+EOL
+  sudo yum install elasticsearch -y -q > /dev/null &
+  spinner $! "Installing"
 fi
 
 printf "Enabling and starting elasticsearch\n\n"
@@ -59,12 +75,12 @@ printf "\n"
 token=$(sudo /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana)
 
 scp split_install_part2.sh "$remote_user@$remote_ip":~/split_install_part2.sh
-ssh $remote_user@$remote_ip "sh ~/split_install_part2.sh" <<EOF
+ssh $remote_user@$remote_ip "sudo -S sh ~/split_install_part2.sh" <<EOF
+$remote_pass
 $ip
 $remote_ip
 $pass
 $token
-$remote_pass
 EOF
 
 printf "Paste Printed out Fingerprint: \n"
@@ -82,4 +98,13 @@ fi
 curl -k -X POST -u elastic:$pass "http://$remote_ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
 rm Alerting.ndjson
 
-sudo sh linux_agent.sh $ip $kibana_ip $finger $pass
+sudo sh linux_agent.sh $ip $remote_ip $finger $pass
+
+scp linux_agent.sh "$remote_user@$remote_ip":~/linux_agent.sh
+ssh "$remote_user@$remote_ip" "sudo -S sh ./linux_agent.sh" <<EOF
+$remote_pass
+$ip
+$remote_ip
+$finger
+$pass
+EOF

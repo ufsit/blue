@@ -6,7 +6,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 hostname=$(hostname 2>/dev/null || hostnamectl hostname)
-if [ $# -lt 4 ]; then
+if [ $# -lt 3 ]; then
   printf "Elasticsearch Server ip: "
   read -r ip
   printf "Kibana Dashboard ip: "
@@ -139,7 +139,11 @@ EOL
     exit $?
   fi
 else
+  if command -v apt > /dev/null 2>&1; then 
     apt-get install auditbeat filebeat packetbeat curl -y > /dev/null
+  else
+    yum install auditbeat filebeat packetbeat curl -y -q > /dev/null
+  fi 
 fi
 result=$(curl -k -u elastic:$pass -X POST "https://$ip:9200/_security/api_key?pretty" -H 'Content-Type: application/json' -d"
 {

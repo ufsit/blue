@@ -55,6 +55,22 @@ if command -v apt > /dev/null 2>&1; then
   printf "\nDownloading Kibana\n\n"
   sudo apt-get install -y kibana > /dev/null &
   spinner $! "Installing"
+elif command -v yum > /dev/null 2>&1; then
+  printf "Installing dependancies..."
+  printf "\n"
+  sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+  sudo cat >> /etc/yum.repos.d/elastic.repo << EOL
+[elastic-8.x]
+name=Elastic repository for 8.x packages
+baseurl=https://artifacts.elastic.co/packages/8.x/yum
+gpgcheck=1
+gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+enabled=1
+autorefresh=1
+type=rpm-md
+EOL
+  sudo yum install kibana -y -q > /dev/null &
+  spinner $! "Installing"
 fi
 
 printf "Configuring kibana\n\n"
