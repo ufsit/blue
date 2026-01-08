@@ -6,7 +6,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 hostname=$(hostname 2>/dev/null || hostnamectl hostname)
-if [ $# -lt 3 ]; then
+if [ $# -lt 4 ]; then
   printf "Elasticsearch Server ip: "
   read -r ip
   printf "Kibana Dashboard ip: "
@@ -29,7 +29,7 @@ else
   pass=$4
 fi
 
-if [ $# -lt 3 ]; then 
+if [ $# -lt 4 ]; then 
   if command -v apt > /dev/null 2>&1; then
     if ! [ -f "/etc/apt/sources.list.d/elastic-8.x.list" ]; then
       printf "Installing dependancies..."
