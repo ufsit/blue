@@ -34,7 +34,11 @@ read -r remote_ip
 printf "Kibana Machine Username: "
 read -r remote_user
 printf "Kibana Machine Password: "
-read -rs remote_pass
+OLD_STTY_SETTINGS=$(stty -g)
+stty -echo
+trap 'stty "$OLD_STTY_SETTINGS"; exit' EXIT INT HUP TERM
+read -r pass
+stty "$OLD_STTY_SETTINGS"
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -99,9 +103,10 @@ fi
 curl -k -X POST -u elastic:$pass "http://$remote_ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
 rm Alerting.ndjson
 
+scp linux_agent.sh rules.conf "$remote_user@$remote_ip":~/linux_agent.sh
+
 sudo sh linux_agent.sh $ip $remote_ip $finger $pass
 
-scp linux_agent.sh "$remote_user@$remote_ip":~/linux_agent.sh
 ssh "$remote_user@$remote_ip" "sudo -S sh ./linux_agent.sh" <<EOF
 $remote_pass
 $ip
