@@ -186,23 +186,47 @@ foreach ($gpoName in $gpoNames) {
 Write-Host "Domain policy reset and hardening completed successfully." -ForegroundColor Cyan
 
 # ===============================
-# Active GPO Enumeration
+# Active GPO Enumeration (Correct)
 # ===============================
 
-Write-Host "Enumerating other active GPOs in the domain..." -ForegroundColor Yellow
+Write-Host "Enumerating active (linked) GPOs in the domain..." -ForegroundColor Yellow
 
+$linkedGpoGuids = New-Object System.Collections.Generic.HashSet[Guid]
+
+# ---- Domain-level links ----
+$domainInheritance = Get-GPInheritance -Target (Get-ADDomain).DistinguishedName
+foreach ($link in $domainInheritance.GpoLinks) {
+    if ($link.Enabled) {
+        $linkedGpoGuids.Add($link.GpoId) | Out-Null
+    }
+}
+
+# ---- OU-level links ----
+$ous = Get-ADOrganizationalUnit -Filter *
+
+foreach ($ou in $ous) {
+    $ouInheritance = Get-GPInheritance -Target $ou.DistinguishedName
+    foreach ($link in $ouInheritance.GpoLinks) {
+        if ($link.Enabled) {
+            $linkedGpoGuids.Add($link.GpoId) | Out-Null
+        }
+    }
+}
+
+# ---- All GPOs ----
 $allGpos = Get-GPO -All
-$defaultNames = @(
+
+$defaultGpos = @(
     "Default Domain Policy",
     "Default Domain Controllers Policy"
 )
 
 $otherGpos = $allGpos | Where-Object {
-    $defaultNames -notcontains $_.DisplayName
+    $defaultGpos -notcontains $_.DisplayName
 }
 
 if (-not $otherGpos) {
-    Write-Host "No additional GPOs found in the domain." -ForegroundColor Green
+    Write-Host "No additional GPOs exist in the domain." -ForegroundColor Green
 }
 else {
 
@@ -210,18 +234,16 @@ else {
 
     foreach ($gpo in $otherGpos) {
 
-        # Check if linked anywhere
-        $links = Get-GPOLink -Guid $gpo.Id -ErrorAction SilentlyContinue
-
-        $linkedStatus = if ($links) { "LINKED" } else { "NOT LINKED" }
+        $isLinked = $linkedGpoGuids.Contains($gpo.Id)
 
         Write-Host "----------------------------------------" -ForegroundColor DarkGray
         Write-Host "Name: $($gpo.DisplayName)"
         Write-Host "GUID: $($gpo.Id)"
-        Write-Host "Status: $linkedStatus"
+        Write-Host "Linked: $isLinked"
         Write-Host "User Enabled: $($gpo.User.Enabled)"
         Write-Host "Computer Enabled: $($gpo.Computer.Enabled)"
     }
 }
 
-Write-Host "GPO enumeration completed." -ForegroundColor Cyan
+Write-Host "Active GPO enumeration completed." -ForegroundColor Cyan
+
