@@ -240,9 +240,21 @@ printf "Starting beats...\n"
 
 if command -v systemctl > /dev/null 2>&1; then
   systemctl status auditd > /dev/null 2>/dev/null
-  if [ -z $? ]; then
+  if [ $? == 0 ]; then
     service auditd stop
     systemctl disable auditd
+  fi
+  systemctl status graylog* > /dev/null 2>/dev/null
+  if [ $? == 0 ]; then
+    systemctl disable --now gray*
+  fi
+  systemctl status wazuh* > /dev/null 2>/dev/null
+  if [ $? == 0 ]; then
+    systemctl disable --now wazuh*
+  fi
+  systemctl status splunk* > /dev/null 2>/dev/null
+  if [ $? == 0 ]; then
+    systemctl disable --now splunk*
   fi
   systemctl daemon-reload > /dev/null && systemctl enable --now auditbeat filebeat > /dev/null
   if [ $(auditbeat show audit-rules | wc -l) -eq 1 ]; then
