@@ -234,15 +234,30 @@ else {
 
     foreach ($gpo in $otherGpos) {
 
-        $isLinked = $linkedGpoGuids.Contains($gpo.Id)
+    $isLinked = $linkedGpoGuids.Contains($gpo.Id)
 
-        Write-Host "----------------------------------------" -ForegroundColor DarkGray
-        Write-Host "Name: $($gpo.DisplayName)"
-        Write-Host "GUID: $($gpo.Id)"
-        Write-Host "Linked: $isLinked"
-        Write-Host "User Enabled: $($gpo.User.Enabled)"
-        Write-Host "Computer Enabled: $($gpo.Computer.Enabled)"
+    # ---- Safe filename (Windows) ----
+    $safeName = $gpo.DisplayName -replace '[\\/:*?"<>|]', '_'
+    $htmlPath = Join-Path (Get-Location) "$safeName.html"
+
+    try {
+        Get-GPOReport `
+            -Guid $gpo.Id `
+            -ReportType Html `
+            -Path $htmlPath
     }
+    catch {
+        Write-Warning "Failed to generate HTML report for $($gpo.DisplayName)"
+    }
+
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
+    Write-Host "Name: $($gpo.DisplayName)"
+    Write-Host "GUID: $($gpo.Id)"
+    Write-Host "Linked: $isLinked"
+    Write-Host "User Enabled: $($gpo.User.Enabled)"
+    Write-Host "Computer Enabled: $($gpo.Computer.Enabled)"
+    Write-Host "HTML Report: $htmlPath"
+}
 }
 
 Write-Host "Active GPO enumeration completed." -ForegroundColor Cyan
