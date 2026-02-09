@@ -133,8 +133,8 @@ function New-ReadablePassword {
     }
 
     $ChosenWords = for ($i = 0; $i -lt $WordCount; $i++) {
-        $Word = $Words[Get-RandomIndex $Words.Count]
-        # Capitalize for complexity
+        $Index = Get-RandomIndex $Words.Count
+        $Word  = $Words[$Index]
         $Word.Substring(0,1).ToUpper() + $Word.Substring(1)
     }
 
