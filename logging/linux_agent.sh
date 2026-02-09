@@ -239,12 +239,18 @@ mv rules.conf /etc/auditbeat/audit.rules.d/
 printf "Starting beats...\n"
 
 if command -v systemctl > /dev/null 2>&1; then
+  systemctl status auditd > /dev/null 2>/dev/null
+  if [ -z $? ]; then
+    service auditd stop
+    systemctl disable auditd
+  fi
   systemctl daemon-reload > /dev/null && systemctl enable --now auditbeat filebeat > /dev/null
   if [ $(auditbeat show audit-rules | wc -l) -eq 1 ]; then
     systemctl restart auditbeat
   fi
 elif command -v service > /dev/null 2>&1; then
   for beat in auditbeat filebeat; do
+    service auditd stop
     service $beat start
   done
 fi
