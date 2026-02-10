@@ -5,11 +5,12 @@ import json
 import pathlib
 import sys
 import time
+import typing
 
 def parse_modsec_json(json_dict: dict) -> str:
     output_str: str = ""
 
-    first_line: str = "{request_time} {request_ip}:{remote_port}\n"
+    first_line: str = "{request_time} {request_ip}:{remote_port} {method} {uri}\n"
     # Add the client IP
 
     output_str += first_line.format(
@@ -18,13 +19,26 @@ def parse_modsec_json(json_dict: dict) -> str:
                 .strftime("%m/%d %H:%M:%S"),
         request_ip=json_dict["transaction"]["client_ip"],
         remote_port=json_dict["transaction"]["client_port"],
+        method=json_dict["transaction"]["request"]["method"],
+        uri=json_dict["transaction"]["request"]["uri"],
     )
 
     for waf_message in json_dict["messages"]:
-        waf_message_line: str = "  {rule_id} | {severity} | {rule_msg} | {rule_data}\n"
+        paranoia_str: str = " "
+        """The paranoia level of the request"""
+        if "paranoia-level/1" in waf_message["data"]["tags"]:
+            paranoia_str = "1"
+        elif "paranoia-level/2" in waf_message["data"]["tags"]:
+            paranoia_str = "2"
+        elif "paranoia-level/3" in waf_message["data"]["tags"]:
+            paranoia_str = "3"
+        elif "paranoia-level/4" in waf_message["data"]["tags"]:
+            paranoia_str = "4"
+
+        waf_message_line: str = "  {rule_id} | {paranoia} | {rule_msg} | {rule_data}\n"
         output_str += waf_message_line.format(
             rule_id=waf_message["data"]["id"],
-            severity=waf_message["data"]["severity"],
+            paranoia=paranoia_str,
             rule_msg=waf_message["data"]["msg"],
             rule_data=waf_message["data"]["data"],
         )
@@ -49,6 +63,7 @@ def parse_caddy_json(json_dict: dict) -> str:
         "Accept-Encoding": "Accept-Encoding",
         "Accept-Language": "Accept-Language",
         "Connection": "Connection",
+        "Referer": "Referer",
         "User-Agent": "UA", 
         "Upgrade-Insecure-Requests": "Upgrade-Insecure-Requests", 
     }
@@ -60,11 +75,6 @@ def parse_caddy_json(json_dict: dict) -> str:
             output_str += header_line.format(
                 header_name=header_abbr,
                 header_value=json_dict["request"]["headers"][header_to_log][0],
-            )
-        else:
-            output_str += header_line.format(
-                header_name=header_abbr,
-                header_value="<header missing>",
             )
 
     return output_str

@@ -25,7 +25,7 @@ First, run `configgen.py` and enter in the information about all
 HTTP/HTTPS servers running on the system.
 
 # License
-Unless otherwise stated, any rules and scripts in this directory and subdirectores are 
+Unless otherwise stated, any rules and scripts in this directory and subdirectories are 
 licensed under the 
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 ```
