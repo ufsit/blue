@@ -3,6 +3,7 @@ Competition Tools for UF CCDC.
 
 ## Subdirectories
  * `injects` - Templates for inject tasks
+ * `ipcatalog` - IP cataloging tool. Licensed under GPLv2 only (see `ipcatalog/README.md` for more details)
  * `logging` - Our scripts to set up the ELK stack
  * `portinventory` - The PortInventory tool. Licensed under AGPLv3 only (see `portinventory/README.md` for more details)
  * `unixfiletransfer` - Scripts to assist in file transfers. Licensed under GPLv2 only (see `unixfiletransfer/README.md` for details)
