@@ -87,5 +87,5 @@ printf "Uploading Alerts to Dashboard"
 curl -k -X POST -u elastic:$pass "http://$ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
 rm Alerting.ndjson
 
-sudo sh linux_agent.sh $ip $finger $pass
+sudo sh linux_agent.sh $ip $ip $finger $pass
 unset $pass
