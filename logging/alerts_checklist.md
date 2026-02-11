@@ -8,6 +8,7 @@
 - Alert on changes to /etc/hosts.allow or deny
 - Changes to /var/www
 - Services started/stopped/restarted
+- Alert on wall commands
 
 # Suricata Alerts
 - Alert on suspicious commands hidden in packets
