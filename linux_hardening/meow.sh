@@ -1,5 +1,5 @@
 #!/bin/sh
-# v8.1
+# v9: Rolls passwords, runs a script, output files in better places
 # Requires: openssl ssh sshpass wamerican-small
 
 # Goal: repeated password rolling for Linux systems
@@ -31,6 +31,9 @@
 #       On each loop, an OK or FAIL is returned
 #       UPDATES [-- adminUser.txt --]   
 
+# runCmd() runs premade scripts, custom scripts, and limited arbitrary commands across machines
+#       REQUIRES valid [adminUser.txt]
+
 initAdmin() {
         while true; do
             printf "\nIgnore Admin Init? [y/n]:\t"
@@ -48,18 +51,18 @@ initAdmin() {
         printf "Password:\t\t\t"
         read -r adminPass
         while :; do
-                rm -f adminUser.txt
+                rm -f passwd_roll_log/adminUser.txt
                 while :; do
                         printf "IP Address (x to stop):\t\t"
                         read -r ip;
                         case "$ip" in
                                 x) break ;;
-                                *) echo $adminUser $ip $adminPass >> adminUser.txt ;;
+                                *) echo $adminUser $ip $adminPass >> passwd_roll_log/adminUser.txt ;;
                         esac
                 done
                 
                 printf "\n----- adminUser.txt Contents -----\n"
-                cat adminUser.txt
+                cat passwd_roll_log/adminUser.txt
                 printf '\nConfirm? [y/N]: '
                 read isInitAdminGood
                 case "$isInitAdminGood" in
@@ -74,22 +77,22 @@ genPasswd() {
 }
 
 genUserList() {
-        rm -f users.txt
+        rm -f passwd_roll_log/users.txt
         while read -r adminUser ip adminPass; do
                 printf "Grabbing users from %-15s with %s:%s\n" "$ip" "$adminUser" "$adminPass" 
-                sshpass -p "$adminPass" ssh -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "grep -Ev '^#|/usr/bin/nologin|/sbin/nologin|/bin/false|sync|bta|black' /etc/passwd | awk -F: '{print \$1\" $ip\"}'" >> users.txt
-        done < adminUser.txt
+                sshpass -p "$adminPass" ssh -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "grep -Ev '^#|/usr/bin/nologin|/sbin/nologin|/bin/false|sync|bta|black' /etc/passwd | awk -F: '{print \$1\" $ip\"}'" >> passwd_roll_log/users.txt
+        done < passwd_roll_log/adminUser.txt
 }
 
 assignPasswd() {
-        rm -f clear.txt passwdHashes.txt userHashes.txt adminHashes.txt
-        adminUser="$(awk '{print $1; exit}' adminUser.txt)"
+        rm -f passwd_roll_log/clear.txt passwd_roll_log/passwdHashes.txt passwd_roll_log/userHashes.txt passwd_roll_log/adminHashes.txt
+        adminUser="$(awk '{print $1; exit}' passwd_roll_log/adminUser.txt)"
         
         while read -r user ip; do
                 if [ "$user" != "$adminUser" ] && [ "$user" != "root" ]; then
                         # If password already assigned to user, use previous
-                        if grep -q -s -e "^$user " clear.txt; then
-                                pass=$(grep -e "^$user " clear.txt | head -n 1 | awk '{print $3}')
+                        if grep -q -s -e "^$user " passwd_roll_log/clear.txt; then
+                                pass=$(grep -e "^$user " passwd_roll_log/clear.txt | head -n 1 | awk '{print $3}')
                         else
                                 pass="$(genPasswd)"
                         fi
@@ -98,25 +101,25 @@ assignPasswd() {
                 fi
 
                 # For PCR purposes
-                echo "$user $ip $pass" >> clear.txt
+                echo "$user $ip $pass" >> passwd_roll_log/clear.txt
 
                 # To modify password
                 hashPass=$(openssl passwd -6 "$pass")
-                echo "$user $ip $hashPass" >> passwdHashes.txt
-        done < users.txt
+                echo "$user $ip $hashPass" >> passwd_roll_log/passwdHashes.txt
+        done < passwd_roll_log/users.txt
         
         # Making clear.txt pretty
-        column -t clear.txt | awk 'NR>1 && $2!=prev {print ""} {print; prev=$2}' > clear.tmp
-        mv clear.tmp clear.txt
+        column -t passwd_roll_log/clear.txt | awk 'NR>1 && $2!=prev {print ""} {print; prev=$2}' > passwd_roll_log/clear.tmp
+        mv passwd_roll_log/clear.tmp passwd_roll_log/clear.txt
         
 
-        grep -v -E "$adminUser" passwdHashes.txt >> userHashes.txt
-        grep -E "$adminUser" passwdHashes.txt >> adminHashes.txt
+        grep -v -E "$adminUser" passwd_roll_log/passwdHashes.txt >> passwd_roll_log/userHashes.txt
+        grep -E "$adminUser" passwd_roll_log/passwdHashes.txt >> passwd_roll_log/adminHashes.txt
 }
 
 confirmRoll() {
         printf -- "\n----- New Passwords -----\n"
-        cat clear.txt
+        cat passwd_roll_log/clear.txt
         printf "\nExecute? [y/N] "
         read -r confirm
         case $confirm in
@@ -126,9 +129,9 @@ confirmRoll() {
         
         printf -- "----- User roll -----\n"
         while read -r user ip hash; do
-                adminUser="$(awk '{print $1; exit}' adminUser.txt)"
-                adminPass="$(grep "$ip" adminUser.txt | awk '{print $3}')"
-                userPass="$(grep "$user" clear.txt | grep "$ip$" | awk '{print $3}')"
+                adminUser="$(awk '{print $1; exit}' passwd_roll_log/adminUser.txt)"
+                adminPass="$(grep "$ip" passwd_roll_log/adminUser.txt | awk '{print $3}')"
+                userPass="$(grep "$user" passwd_roll_log/clear.txt | grep "$ip$" | awk '{print $3}')"
                 
                 # Escaping sensitive chars
                 safe_hash=$(printf '%s\n' "$hash" | sed 's/\$/\\$/g')
@@ -140,11 +143,11 @@ confirmRoll() {
                 else
                         echo FAIL
                 fi                
-        done < userHashes.txt
+        done < passwd_roll_log/userHashes.txt
 
         printf -- "----- Admin Roll -----\n"
         while read -r user ip hash; do
-                oldPass="$(grep "$ip" adminUser.txt | awk '{print $3}')"
+                oldPass="$(grep "$ip" passwd_roll_log/adminUser.txt | awk '{print $3}')"
 
                 # Escaping $ chars
                 safe_hash=$(printf '%s\n' "$hash" | sed 's/\$/\\$/g')
@@ -156,16 +159,64 @@ confirmRoll() {
                 else
                         echo FAIL
                 fi
-        done < adminHashes.txt
+        done < passwd_roll_log/adminHashes.txt
         
         # Updating adminUser passwords
-        grep $adminUser clear.txt | awk '{ print $1, $2, $3 }' > adminUser.tmp
-        mv adminUser.tmp adminUser.txt
+        grep $adminUser passwd_roll_log/clear.txt | awk '{ print $1, $2, $3 }' > passwd_roll_log/adminUser.tmp
+        mv passwd_roll_log/adminUser.tmp passwd_roll_log/adminUser.txt
         
         # For PCR
         printf "\n----- New Admin Passwords -----\n"
-        cat adminUser.txt | column -t
+        cat passwd_roll_log/adminUser.txt | column -t
         printf "\n"
+}
+
+runCmd() {
+        printf -- "\n----- Run Commands -----\n"
+        printf "[1] Network Enum\n"
+        printf "\n[a] Custom Command\n"
+        printf "[b] Custom Script\n"
+        printf "[x] Exit\n"
+        printf "Option: "
+        read -r option
+        case "$option" in
+                1) 
+                        log="net_enum_log/net_enum_$(date +"%H-%M-%S").out"
+                        touch $log
+                        printf "\n"
+                        while read -r adminUser ip adminPass; do
+                                printf -- "[----- MEOW_NET_ENUM: %s -----]\n" "$ip" | tee -a "$log"
+                                sshpass -p "$adminPass" scp -o StrictHostKeyChecking=no net_enum.sh "${adminUser}@${ip}:"
+                                sshpass -p "$adminPass" ssh -T -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "chmod +x net_enum.sh; ./net_enum.sh" >> "$log"
+                        done < passwd_roll_log/adminUser.txt
+                        printf "%s\n\n" "$log"
+                        ;;
+                b)
+                        printf "Script name: "
+                        read -r script
+                        log="script_log/${script}_$(date +"%H-%M-%S").out"
+                        printf "\n"
+                        while read -r adminUser ip adminPass; do
+                                printf -- "[----- MEOW: %s -----]\n" "$ip" | tee -a "$log"
+                                sshpass -p "$adminPass" scp -o StrictHostKeyChecking=no "$script" "${adminUser}@${ip}:"
+                                sshpass -p "$adminPass" ssh -T -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "chmod +x "$script"; ./"$script"" >> "$log"
+                        done < passwd_roll_log/adminUser.txt
+                        printf "%s\n\n" "$log"
+                        ;;
+                a)
+                        printf "Command: "
+                        read cmd;
+                        log="cmd_log/cmd_$(date +"%H-%M-%S").out"
+                        printf "Command:\n%s\n\n" "$cmd" >> "$log"
+                        while read -r adminUser ip adminPass; do
+                                printf -- "----- MEOW: %s -----\n" "$ip" | tee -a "$log"
+                                sshpass -p "$adminPass" ssh -T -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "$cmd" >> "$log"
+                        done < passwd_roll_log/adminUser.txt
+                        printf "%s\n\n" "$log"
+                        ;;
+                *)
+                        ;;
+        esac
 }
 
 while true; do
@@ -181,6 +232,9 @@ while true; do
             genUserList
             assignPasswd
             confirmRoll
+            ;;
+        2)
+            runCmd
             ;;
         x) break ;;
         *) ;;
