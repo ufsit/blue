@@ -1,5 +1,5 @@
 #!/bin/sh
-# v8
+# v8.1
 # Requires: openssl ssh sshpass wamerican-small
 
 # Goal: repeated password rolling for Linux systems
@@ -32,21 +32,25 @@
 #       UPDATES [-- adminUser.txt --]   
 
 initAdmin() {
-        echo -n 'First roll? [y/N]:\t'
-        read isFirstRoll
-        case "$isFirstRoll" in
-                y) ;;
-                *) return ;;
-        esac     
+        while true; do
+            printf "\nIgnore Admin Init? [y/n]:\t"
+            read isFirstRoll
+            case "$isFirstRoll" in
+                    y) return ;;
+                    n) break ;;
+                    *) ;;
+            esac     
+        done
 
-        echo -n "Admin:\t\t\t"
+        printf "If mistaken, Ctrl+c to exit\n"
+        printf "Admin:\t\t\t\t"
         read -r adminUser
-        echo -n "Password:\t\t"
+        printf "Password:\t\t\t"
         read -r adminPass
         while :; do
                 rm -f adminUser.txt
                 while :; do
-                        echo -n "IP Address (x to stop): "
+                        printf "IP Address (x to stop):\t\t"
                         read -r ip;
                         case "$ip" in
                                 x) break ;;
@@ -54,9 +58,9 @@ initAdmin() {
                         esac
                 done
                 
-                echo "\n----- adminUser.txt Contents -----"
+                printf "\n----- adminUser.txt Contents -----\n"
                 cat adminUser.txt
-                echo -n '\nConfirm? [y/N]: '
+                printf '\nConfirm? [y/N]: '
                 read isInitAdminGood
                 case "$isInitAdminGood" in
                         y) break ;;
@@ -111,16 +115,16 @@ assignPasswd() {
 }
 
 confirmRoll() {
-        echo "\n----- New Passwords -----"
+        printf -- "\n----- New Passwords -----\n"
         cat clear.txt
-        echo -n "\nExecute? [y/N] "
+        printf "\nExecute? [y/N] "
         read -r confirm
         case $confirm in
                 y) ;;
                 *) exit ;;
         esac
         
-        echo "----- User roll -----"
+        printf -- "----- User roll -----\n"
         while read -r user ip hash; do
                 adminUser="$(awk '{print $1; exit}' adminUser.txt)"
                 adminPass="$(grep "$ip" adminUser.txt | awk '{print $3}')"
@@ -129,7 +133,8 @@ confirmRoll() {
                 # Escaping sensitive chars
                 safe_hash=$(printf '%s\n' "$hash" | sed 's/\$/\\$/g')
                 
-                printf "Editing %-12s @%-15s with %s:%-35s " "$user" "$ip" "$adminUser" "$adminPass"
+                # printf "Editing %-12s %-15s with %s:%-35s " "$user" "$ip" "$adminUser" "$adminPass"
+                printf "Editing %-12s %-15s " "$user" "$ip"
                 if sshpass -p "$adminPass" ssh -n -o StrictHostKeyChecking=no "${adminUser}@${ip}" "sudo sed -i \"s|^$user:[^:]*:|$user:$safe_hash:|\" /etc/shadow" 2>/dev/null; then
                         echo OK
                 else
@@ -137,14 +142,15 @@ confirmRoll() {
                 fi                
         done < userHashes.txt
 
-        echo "----- Admin Roll -----"
+        printf -- "----- Admin Roll -----\n"
         while read -r user ip hash; do
                 oldPass="$(grep "$ip" adminUser.txt | awk '{print $3}')"
 
                 # Escaping $ chars
                 safe_hash=$(printf '%s\n' "$hash" | sed 's/\$/\\$/g')
                 
-                printf "Editing %-12s @%-15s with %s:%-35s " "$user" "$ip" "$adminUser" "$oldPass"
+                # printf "Editing %-12s %-15s with %s:%-35s " "$user" "$ip" "$adminUser" "$oldPass"
+                printf "Editing %-12s %-15s " "$user" "$ip"
                 if sshpass -p "$oldPass" ssh -n -o StrictHostKeyChecking=no "${user}@${ip}" "sudo sed -i \"s|^$user:[^:]*:|$user:$safe_hash:|\" /etc/shadow" 2>/dev/null; then
                         echo OK
                 else
@@ -157,11 +163,26 @@ confirmRoll() {
         mv adminUser.tmp adminUser.txt
         
         # For PCR
-        echo "\n----- New Admin Passwords -----"
+        printf "\n----- New Admin Passwords -----\n"
         cat adminUser.txt | column -t
+        printf "\n"
 }
 
-initAdmin
-genUserList
-assignPasswd
-confirmRoll
+while true; do
+    echo "~~~~~ Welcome to meow! ~~~~~~"
+    echo "[1] Password Roll"
+    echo "[2] Command"
+    echo "[x] Exit"
+    printf "Option: "
+    read -r  option
+    case "$option" in
+        1) 
+            initAdmin
+            genUserList
+            assignPasswd
+            confirmRoll
+            ;;
+        x) break ;;
+        *) ;;
+    esac
+done
