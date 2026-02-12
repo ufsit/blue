@@ -1,8 +1,6 @@
 # ==========================================
-# Service Account + Signature Inventory Script
-# Account Scope Aware
+# Service Account + Signature Tier Inventory
 # PowerShell 3.0 Compatible
-# Any Windows Machine
 # ==========================================
 
 $OutputFile = ".\service_account_inventory.csv"
@@ -33,23 +31,37 @@ Get-WmiObject Win32_Service | ForEach-Object {
     }
 
     # ---------------------------------
-    # Check digital signature
+    # Signature Analysis
     # ---------------------------------
     $SignatureStatus = "Unknown"
-    $IsUnsigned = $true
+    $Publisher       = "None"
+    $SignatureTier   = 0   # Default = Unsigned/Invalid
 
     if ($ExePath -and (Test-Path $ExePath)) {
         try {
             $Sig = Get-AuthenticodeSignature $ExePath
             $SignatureStatus = $Sig.Status
 
+            if ($Sig.SignerCertificate) {
+                $Publisher = $Sig.SignerCertificate.Subject
+            }
+
             if ($Sig.Status -eq "Valid") {
-                $IsUnsigned = $false
+
+                if ($Publisher -match "Microsoft") {
+                    $SignatureTier = 2   # Microsoft signed
+                }
+                else {
+                    $SignatureTier = 1   # Valid but non-Microsoft
+                }
+            }
+            else {
+                $SignatureTier = 0       # Invalid or NotSigned
             }
         }
         catch {
             $SignatureStatus = "Error"
-            $IsUnsigned = $true
+            $SignatureTier   = 0
         }
     }
 
@@ -106,17 +118,17 @@ Get-WmiObject Win32_Service | ForEach-Object {
     # Record result
     # --------------------------
     $Results += [PSCustomObject]@{
-        UnsignedPriority = if ($IsUnsigned) { 0 } else { 1 }   # 0 sorts first
-        ServiceName      = $ServiceName
-        DisplayName      = $DisplayName
-        StartMode        = $StartMode
-        State            = $State
-        Account          = $Account
-        AccountType      = $AccountType
-        AccountUI        = $AccountUI
-        ExecutablePath   = $ExePath
-        SignatureStatus  = $SignatureStatus
-        Evidence         = "Win32_Service.StartName + Authenticode"
+        SignatureTier   = $SignatureTier
+        ServiceName     = $ServiceName
+        DisplayName     = $DisplayName
+        StartMode       = $StartMode
+        State           = $State
+        Account         = $Account
+        AccountType     = $AccountType
+        ExecutablePath  = $ExePath
+        SignatureStatus = $SignatureStatus
+        Publisher       = $Publisher
+        Evidence        = "Win32_Service + Authenticode"
     }
 }
 
@@ -124,10 +136,15 @@ Get-WmiObject Win32_Service | ForEach-Object {
 # Export results
 # --------------------------
 $Results |
-    Sort-Object UnsignedPriority, ServiceName |
-    Select-Object * -ExcludeProperty UnsignedPriority |
+    Sort-Object SignatureTier, ServiceName |
+    Select-Object * -ExcludeProperty SignatureTier |
     Export-Csv $OutputFile -NoTypeInformation
 
 Write-Host "Service inventory complete."
-Write-Host "Unsigned services appear at the top."
+Write-Host ""
+Write-Host "Order:"
+Write-Host "  1) Unsigned / Invalid"
+Write-Host "  2) Signed (Non-Microsoft)"
+Write-Host "  3) Microsoft Signed"
+Write-Host ""
 Write-Host "Results saved to service_account_inventory.csv"
