@@ -110,7 +110,7 @@ $ReviewList |
 # --------------------------
 function New-ReadablePassword {
     param (
-        [int]$WordCount = 4,
+        [int]$WordCount = 3,
         [string]$WordFile = ".\words.txt"
     )
 
