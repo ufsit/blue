@@ -1,5 +1,5 @@
 # ==========================================
-# Service Account Inventory Script
+# Service Account + Signature Inventory Script
 # Account Scope Aware
 # PowerShell 3.0 Compatible
 # Any Windows Machine
@@ -17,15 +17,49 @@ Get-WmiObject Win32_Service | ForEach-Object {
     $StartMode   = $_.StartMode
     $State       = $_.State
     $StartName   = $_.StartName
+    $PathName    = $_.PathName
 
-    # Defaults
-    $Account     = ""
-    $AccountType = ""
-    $AccountUI   = ""
+    # ---------------------------------
+    # Extract executable path
+    # ---------------------------------
+    $ExePath = $null
+
+    if ($PathName) {
+        if ($PathName.StartsWith('"')) {
+            $ExePath = $PathName.Split('"')[1]
+        } else {
+            $ExePath = $PathName.Split(" ")[0]
+        }
+    }
+
+    # ---------------------------------
+    # Check digital signature
+    # ---------------------------------
+    $SignatureStatus = "Unknown"
+    $IsUnsigned = $true
+
+    if ($ExePath -and (Test-Path $ExePath)) {
+        try {
+            $Sig = Get-AuthenticodeSignature $ExePath
+            $SignatureStatus = $Sig.Status
+
+            if ($Sig.Status -eq "Valid") {
+                $IsUnsigned = $false
+            }
+        }
+        catch {
+            $SignatureStatus = "Error"
+            $IsUnsigned = $true
+        }
+    }
 
     # --------------------------
     # Account classification
     # --------------------------
+    $Account     = ""
+    $AccountType = ""
+    $AccountUI   = ""
+
     if (-not $StartName -or $StartName -eq "LocalSystem") {
         $Account     = "LocalSystem"
         $AccountType = "Built-in"
@@ -49,7 +83,6 @@ Get-WmiObject Win32_Service | ForEach-Object {
 
         $Account = $StartName.ToLower()
 
-        # Managed Service Account / gMSA
         if ($User.EndsWith("$")) {
             $AccountType = "Managed Service Account"
             $AccountUI   = "dsa.msc (Do Not Rotate)"
@@ -73,14 +106,17 @@ Get-WmiObject Win32_Service | ForEach-Object {
     # Record result
     # --------------------------
     $Results += [PSCustomObject]@{
-        ServiceName = $ServiceName
-        DisplayName = $DisplayName
-        StartMode   = $StartMode
-        State       = $State
-        Account     = $Account
-        AccountType = $AccountType
-        AccountUI   = $AccountUI
-        Evidence    = "Win32_Service.StartName"
+        UnsignedPriority = if ($IsUnsigned) { 0 } else { 1 }   # 0 sorts first
+        ServiceName      = $ServiceName
+        DisplayName      = $DisplayName
+        StartMode        = $StartMode
+        State            = $State
+        Account          = $Account
+        AccountType      = $AccountType
+        AccountUI        = $AccountUI
+        ExecutablePath   = $ExePath
+        SignatureStatus  = $SignatureStatus
+        Evidence         = "Win32_Service.StartName + Authenticode"
     }
 }
 
@@ -88,8 +124,10 @@ Get-WmiObject Win32_Service | ForEach-Object {
 # Export results
 # --------------------------
 $Results |
-    Sort-Object ServiceName |
+    Sort-Object UnsignedPriority, ServiceName |
+    Select-Object * -ExcludeProperty UnsignedPriority |
     Export-Csv $OutputFile -NoTypeInformation
 
 Write-Host "Service inventory complete."
+Write-Host "Unsigned services appear at the top."
 Write-Host "Results saved to service_account_inventory.csv"
