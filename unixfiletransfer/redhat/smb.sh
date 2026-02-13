@@ -1,8 +1,7 @@
-apt-get update
-apt-get install samba cifs-utils smbclient -y
+dnf install samba -y
 adduser backupuser
 mkdir /home/backupuser/shared
-chown /home/backupuser/shared backupuser
+chown backupuser /home/backupuser/shared
 cat <<EOF >> /etc/samba/smb.conf
 [backup]
   comment = Backup folder
@@ -16,5 +15,8 @@ cat <<EOF >> /etc/samba/smb.conf
 EOF
 smbpasswd -a backupuser
 smbpasswd -e backupuser
-systemctl restart nmbd
-systemctl enable nmbd
+systemctl enable smb --now
+systemctl restart smb
+
+semanage fcontext --add --type "samba_share_t" "/home/backupuser/shared(/.*)?"
+restorecon -R /home/backupuser/shared
