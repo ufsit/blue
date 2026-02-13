@@ -3,7 +3,7 @@ A suite of tools to rapidly get file transfer working on Unix-like systems.
 
 
 # License
-Unless otherwise stated, all files in this repository are licensed 
+Unless otherwise stated, all files in this directory and subdirectories are licensed 
 under the [GNU General Public License, version 2](/LICENSE).
 ```
     Copyright (C) 2026  Yuliang Huang <https://gitlab.com/yhuang885>

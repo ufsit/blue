@@ -2,6 +2,7 @@
 Competition Tools for UF CCDC.
 
 ## Subdirectories
+ * `http` - Miscellaneous web-related scripts.
  * `injects` - Templates for inject tasks
  * `ipcatalog` - IP cataloging tool. Licensed under GPLv2 only (see `ipcatalog/README.md` for more details)
  * `logging` - Our scripts to set up the ELK stack
