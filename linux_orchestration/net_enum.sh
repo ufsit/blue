@@ -30,4 +30,6 @@ ip route | grep default 2>/dev/null || route -n | grep '^0.0.0.0'
 printf "\n===== NETWORK MANAGER STATUS (if present) =====\n"
 nmcli device status 2>/dev/null
 
+printf "\n===== OPEN PORTS =====\n"
+netstat -lntu 2>/dev/null
 
