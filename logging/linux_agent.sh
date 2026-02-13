@@ -53,7 +53,7 @@ enabled=1
 autorefresh=1
 type=rpm-md
 EOL
-    yum install auditbeat filebeat packetbeat curl -y --allowerasing -q > /dev/null
+    yum install auditbeat filebeat packetbeat curl -y -q > /dev/null
   elif command -v zypper > /dev/null 2>&1; then 
     rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
     cat >> /etc/zypp/repos.d/elastic.repo << EOL

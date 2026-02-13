@@ -108,7 +108,6 @@ scp linux_agent.sh rules.conf "$remote_user@$remote_ip":~/linux_agent.sh
 sudo sh linux_agent.sh $ip $remote_ip $finger $pass
 
 ssh "$remote_user@$remote_ip" "sudo -S sh ./linux_agent.sh" <<EOF
-$remote_pass
 $ip
 $remote_ip
 $finger
