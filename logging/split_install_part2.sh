@@ -27,8 +27,23 @@ spinner() {
     printf "\r$2 Done.\n"
 }
 
-printf "Elk server ip: "
 read -r ip
+read -r remote_ip
+read -r pass
+read -r token
+read -r sudo_pass
+
+echo $sudo_pass | sudo -S -v
+(
+  while true; do
+    sudo -n true
+    sleep 60
+  done
+) &
+SUDO_KEEPALIVE_PID=$!
+
+trap 'kill $SUDO_KEEPALIVE_PID' EXIT
+
 
 if command -v apt > /dev/null 2>&1; then
   printf "Installing dependancies..."
@@ -37,34 +52,40 @@ if command -v apt > /dev/null 2>&1; then
   sudo apt-get install apt-transport-https -y > /dev/null
   echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list > /dev/null
   sudo apt-get update -y > /dev/null
-  printf "\nDownloading elastic and kibana\n\n"
-  sudo apt-get install elasticsearch kibana > /dev/null &
+  printf "\nDownloading Kibana\n\n"
+  sudo apt-get install -y kibana > /dev/null &
+  spinner $! "Installing"
+elif command -v yum > /dev/null 2>&1; then
+  printf "Installing dependancies..."
+  printf "\n"
+  sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+  sudo cat >> /etc/yum.repos.d/elastic.repo << EOL
+[elastic-8.x]
+name=Elastic repository for 8.x packages
+baseurl=https://artifacts.elastic.co/packages/8.x/yum
+gpgcheck=1
+gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+enabled=1
+autorefresh=1
+type=rpm-md
+EOL
+  sudo yum install kibana -y -q > /dev/null &
   spinner $! "Installing"
 fi
 
-printf "Enabling and starting elasticsearch\n\n"
-sudo systemctl daemon-reload > /dev/null
-sudo systemctl enable --now elasticsearch > /dev/null 2>&1 &
-spinner $! "Starting elastic"
-
-printf "Getting new password\n\n"
-pass=$(echo y | sudo /usr/share/elasticsearch/bin/elasticsearch-reset-password -s -u elastic)
-printf "\n"
-
 printf "Configuring kibana\n\n"
-sudo sed -i s/'#server.host: "localhost"'/"server.host\: \"$ip\""/ /etc/kibana/kibana.yml
+sudo sed -i s/'#server.host: "localhost"'/"server.host\: \"$remote_ip\""/ /etc/kibana/kibana.yml
 sudo /usr/share/kibana/bin/kibana-encryption-keys generate | grep xpack.*: | sudo tee -a /etc/kibana/kibana.yml > /dev/null
 sudo systemctl enable --now kibana > /dev/null 2>&1 &
 spinner $! "Starting kibana"
 
-token=$(sudo /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana)
-sudo systemctl status kibana | grep "$ip:5601" > /dev/null
+systemctl status kibana | grep "$remote_ip:5601" > /dev/null
 while [ $? -ne 0 ]; do
-  sudo systemctl status kibana | grep "code=" > /dev/null
+  systemctl status kibana | grep "code=" > /dev/null
 done &
 spinner $! "Waiting"
 
-code=$(sudo systemctl status kibana | grep "code=" | awk -F' to ' '{print $2}')
+code=$(systemctl status kibana | grep "code=" | awk -F' to ' '{print $2}')
 
 printf "Finished setting up kibana and elasticsearch\n"
 printf "Navigate to $code and paste the enrollment token to complete the script\n"
@@ -77,15 +98,3 @@ while [ $? -ne 0 ]; do
 done
 finger=$(echo $finger | awk -F'ca_trusted_fingerprint: ' '{print $2}' | awk -F'}' '{print $1}') 
 printf "CA fingerprint: $finger\n\n"
-
-printf "Attempting to set up beats\n"
-
-printf "Press enter when you can log into the dashboard\n"
-read -r hold
-
-printf "Uploading Alerts to Dashboard"
-# curl -L -O -s "https://github.com/ufsit/shreksophone1/raw/refs/heads/main/Alerting.ndjson"
-curl -k -X POST -u elastic:$pass "http://$ip:5601/api/detection_engine/rules/_import" -H "kbn-xsrf: true" --form "file=@Alerting.ndjson"
-rm Alerting.ndjson
-
-sudo sh linux_agent.sh $ip $finger $pass
