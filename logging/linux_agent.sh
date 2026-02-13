@@ -5,8 +5,6 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-server_install= "false"
-
 hostname=$(hostname 2>/dev/null || hostnamectl hostname)
 if [ $# -lt 4 ]; then
   printf "Elastic Server ip: "
@@ -29,7 +27,6 @@ else
   kibana_ip=$2
   finger=$3
   pass=$4
-  server_install= ""
 fi
 
 if [ $# -lt 3 ]; then 
@@ -160,7 +157,9 @@ id=$(echo "$result" | awk -F'"' '/"id"/{print $4}')
 key=$(echo "$result" | awk -F'"' '/api_key/{print $4}')
 api_key="$id:$key"
 
-if [ -z $server_install ]; then
+
+if [ $# -gt 1 ]; then
+  printf "~-~-~-~-~-Server install is: %s\n" "$server_install"
   for beat in auditbeat filebeat packetbeat; do
     $beat setup -E setup.kibana.host="http://$kibana_ip:5601" -E setup.kibana.username="elastic" -E setup.kibana.password="$pass" -E output.elasticsearch.hosts="[\"https://$ip:9200\"]" -E output.elasticsearch.username="elastic" -E output.elasticsearch.password="$pass" -E output.elasticsearch.ssl.enabled="true" -E output.elasticsearch.ssl.ca_trusted_fingerprint="$finger" -c /etc/$beat/$beat.yml --path.home "/etc/$beat/"
   done
@@ -220,7 +219,7 @@ processors:
               destination.ip: 127.0.0.53
 EOL
 
-sed -i "s/\/usr\/sbin\n  - \/etc/\/usr\/sbin\n  - \/etc\n  - \/tmp\n  - \/var\/tmp\n  - \/var\/spool\n  - \/var\/www\n  - \/lib\n  - \/lib64\n  - \/usr\/lib\n  - \/usr\/lib64\n  - \/var\/lib\n  - \/usr\/lib\n  - \/usr\/share\n  - \/usr\/local\n  recursive: true\n  exclude_files:\n  - '\.sw.$'\n  - '\.swpx$'\n  - '~$'\n  - '\/\#.*\#$'\n  - '\\.save$'/g" /etc/auditbeat/auditbeat.yml
+sed -i "s/- \/etc/- \/etc\n  - \/tmp\n  - \/var\/tmp\n  - \/var\/spool\n  - \/var\/www\n  - \/lib\n  - \/lib64\n  - \/usr\/lib\n  - \/usr\/lib64\n  - \/var\/lib\n  - \/usr\/lib\n  - \/usr\/share\n  - \/usr\/local\n  - \/opt\n  recursive: true\n  exclude_files:\n  - '\.sw.$'\n  - '\.swpx$'\n  - '~$'\n  - '\.temp$'\n  - '\/\#.*\#$'\n  - '\\.save$'/g" /etc/auditbeat/auditbeat.yml
 
 # Configure filebeat for modesc
 sed -i "s/  id:.*/  id: modsec/g" /etc/filebeat/filebeat.yml
@@ -250,6 +249,9 @@ if command -v systemctl > /dev/null 2>&1; then
   systemctl status auditd > /dev/null 2>/dev/null
   if [ $? -eq 0 ]; then
     service auditd stop
+    if [ $? -neq 0 ]; then
+      kill -9 $(ps -aux | grep '/auditd' | grep root | awk '{print $2}')
+    fi
     systemctl disable auditd
   fi
   systemctl status graylog* > /dev/null 2>/dev/null
