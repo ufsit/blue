@@ -99,13 +99,11 @@ rollPasswd() {
             read isFirstRoll
             case "$isFirstRoll" in
                     y) break ;;
-                    n) initAdmin ;;
+                    n) initAdmin 
+                       break ;;
                     *) ;;
             esac     
         done
-
-        
-
 
 # ----- genUserList() -----
         rm -f passwd_roll_log/users.txt

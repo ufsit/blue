@@ -249,7 +249,7 @@ if command -v systemctl > /dev/null 2>&1; then
   systemctl status auditd > /dev/null 2>/dev/null
   if [ $? -eq 0 ]; then
     service auditd stop
-    if [ $? -neq 0 ]; then
+    if [ $? -ne 0 ]; then
       kill -9 $(ps -aux | grep '/auditd' | grep root | awk '{print $2}')
     fi
     systemctl disable auditd
