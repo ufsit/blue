@@ -1,3 +1,4 @@
+# Catching Plaintext Commands Over Network Connection
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "wall"; sid: 1000000; rev: 1; gid: 5;)
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "cat"; sid: 1000001; rev: 1; gid: 5;)
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "ls"; sid: 1000002; rev: 1; gid: 5;)
@@ -7,3 +8,6 @@ alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; co
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "sed"; sid: 1000006; rev: 1; gid: 5;)
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "curl"; sid: 1000007; rev: 1; gid: 5;)
 alert tcp $EXTERNAL_NET any -> $HOME_NET ![22,80] (msg: "Suspicious Command"; content: "wget"; sid: 1000008; rev: 1; gid: 5;)
+
+# Alert on Traffic entering the network to a non-standard port and leaving the network to a non-standard port
+alert ip $EXTERNAL_NET ![1:1024] <> $HOME_NET ![1:1024,3389,2049,5895,5896,3306] (msg: "Nonstandard Port Communication"; sid: 1000009; rev: 1; gid: 2;)
