@@ -158,8 +158,8 @@ key=$(echo "$result" | awk -F'"' '/api_key/{print $4}')
 api_key="$id:$key"
 
 
-if [ $# -gt 1 ]; then
-  printf "~-~-~-~-~-Server install is: %s\n" "$server_install"
+if [ $# -gt 1 ] || command -v apk > /dev/null 2>/dev/null; then
+  printf "~-~-~-~-~-Setting up Indexes and Dashboards\n"
   for beat in auditbeat filebeat packetbeat; do
     $beat setup -E setup.kibana.host="http://$kibana_ip:5601" -E setup.kibana.username="elastic" -E setup.kibana.password="$pass" -E output.elasticsearch.hosts="[\"https://$ip:9200\"]" -E output.elasticsearch.username="elastic" -E output.elasticsearch.password="$pass" -E output.elasticsearch.ssl.enabled="true" -E output.elasticsearch.ssl.ca_trusted_fingerprint="$finger" -c /etc/$beat/$beat.yml --path.home "/etc/$beat/"
   done
