@@ -1,3 +1,60 @@
+# ===============================
+# Pre-Reset GPO Backup (HTML + TXT)
+# ===============================
+
+Write-Host "Backing up existing GPO settings..." -ForegroundColor Yellow
+
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$workingDir = Get-Location
+
+$backupGpos = @(
+    "Default Domain Policy",
+    "Default Domain Controllers Policy"
+)
+
+foreach ($gpoName in $backupGpos) {
+
+    try {
+        $gpo = Get-GPO -Name $gpoName -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "Skipping backup: $gpoName not found."
+        continue
+    }
+
+    $baseName = $gpoName.Replace(" ", "_")
+
+    # HTML report (full settings)
+    $htmlPath = Join-Path $workingDir "$baseName`_PRE_RESET_$timestamp.html"
+    Get-GPOReport `
+        -Guid $gpo.Id `
+        -ReportType Html `
+        -Path $htmlPath
+
+    # TXT report (summary + permissions)
+    $txtPath = Join-Path $workingDir "$baseName`_PRE_RESET_$timestamp.txt"
+
+    $txtContent = @()
+    $txtContent += "GPO Name: $($gpo.DisplayName)"
+    $txtContent += "GUID: $($gpo.Id)"
+    $txtContent += "Creation Time: $($gpo.CreationTime)"
+    $txtContent += "Modification Time: $($gpo.ModificationTime)"
+    $txtContent += "User Version: $($gpo.User.DSVersion)"
+    $txtContent += "Computer Version: $($gpo.Computer.DSVersion)"
+    $txtContent += ""
+    $txtContent += "=== Security Filtering & Delegation ==="
+
+    Get-GPPermission -Guid $gpo.Id -All | ForEach-Object {
+        $txtContent += "$($_.Trustee.Name) [$($_.TrusteeType)] : $($_.Permission)"
+    }
+
+    $txtContent | Out-File -FilePath $txtPath -Encoding UTF8
+
+    Write-Host "Backed up $gpoName" -ForegroundColor Green
+}
+
+Write-Host "Pre-reset GPO backup completed." -ForegroundColor Cyan
+
 Write-Host "Starting secure domain policy reset..." -ForegroundColor Cyan
 
 # ===============================
@@ -127,3 +184,81 @@ foreach ($gpoName in $gpoNames) {
 }
 
 Write-Host "Domain policy reset and hardening completed successfully." -ForegroundColor Cyan
+
+# ===============================
+# Active GPO Enumeration (Correct)
+# ===============================
+
+Write-Host "Enumerating active (linked) GPOs in the domain..." -ForegroundColor Yellow
+
+$linkedGpoGuids = New-Object System.Collections.Generic.HashSet[Guid]
+
+# ---- Domain-level links ----
+$domainInheritance = Get-GPInheritance -Target (Get-ADDomain).DistinguishedName
+foreach ($link in $domainInheritance.GpoLinks) {
+    if ($link.Enabled) {
+        $linkedGpoGuids.Add($link.GpoId) | Out-Null
+    }
+}
+
+# ---- OU-level links ----
+$ous = Get-ADOrganizationalUnit -Filter *
+
+foreach ($ou in $ous) {
+    $ouInheritance = Get-GPInheritance -Target $ou.DistinguishedName
+    foreach ($link in $ouInheritance.GpoLinks) {
+        if ($link.Enabled) {
+            $linkedGpoGuids.Add($link.GpoId) | Out-Null
+        }
+    }
+}
+
+# ---- All GPOs ----
+$allGpos = Get-GPO -All
+
+$defaultGpos = @(
+    "Default Domain Policy",
+    "Default Domain Controllers Policy"
+)
+
+$otherGpos = $allGpos | Where-Object {
+    $defaultGpos -notcontains $_.DisplayName
+}
+
+if (-not $otherGpos) {
+    Write-Host "No additional GPOs exist in the domain." -ForegroundColor Green
+}
+else {
+
+    Write-Host "Additional GPOs detected:" -ForegroundColor Cyan
+
+    foreach ($gpo in $otherGpos) {
+
+    $isLinked = $linkedGpoGuids.Contains($gpo.Id)
+
+    # ---- Safe filename (Windows) ----
+    $safeName = $gpo.DisplayName -replace '[\\/:*?"<>|]', '_'
+    $htmlPath = Join-Path (Get-Location) "$safeName.html"
+
+    try {
+        Get-GPOReport `
+            -Guid $gpo.Id `
+            -ReportType Html `
+            -Path $htmlPath
+    }
+    catch {
+        Write-Warning "Failed to generate HTML report for $($gpo.DisplayName)"
+    }
+
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
+    Write-Host "Name: $($gpo.DisplayName)"
+    Write-Host "GUID: $($gpo.Id)"
+    Write-Host "Linked: $isLinked"
+    Write-Host "User Enabled: $($gpo.User.Enabled)"
+    Write-Host "Computer Enabled: $($gpo.Computer.Enabled)"
+    Write-Host "HTML Report: $htmlPath"
+}
+}
+
+Write-Host "Active GPO enumeration completed." -ForegroundColor Cyan
+

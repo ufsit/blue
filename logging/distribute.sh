@@ -1,29 +1,30 @@
 #!/bin/sh
-printf "Enter network ip address minus the last octet (i.e. 192.168.1.): "
-read -r ip
-printf "Enter smallest number of last ip octet: "
-read -r low
-printf "Enter universal username: "
-read -r user
-printf "Enter universal password: "
-read -r pass
-printf "Elasticsearch ip: "
-read -r el_ip
-printf "Kibana ip: "
-read -r kib_ip
-printf "Fingerprint: "
-read -r finger
-printf "Elastic Password: "
-read -r elastic_pass
+# Press enter when finished
 
-while [ $low -lt 256 ]; do
-  scp -o ConnectTimeout=5 linux_agent.sh "$user@$ip$low":~
-  ssh -o ConnectTimeout=5 "$user@$ip$low" "sudo sh linux_agent.sh" <<EOF
-$pass
-$el_ip
-$kib_ip
+printf "user: "
+read -r user
+printf "password: "
+read -r pass
+printf "ip: "
+read -r ip
+printf "elastic ip: "
+read -r elastic
+printf "kibana ip: "
+read -r kibana
+printf "fingerprint: "
+read -r finger
+printf "elastic password: "
+read -r password
+
+while ! [ -z "$ip"  ]; do
+  echo $ip
+  sshpass -p "$pass" scp -o ConnectTimeout=5 -o StrictHostKeyChecking=no linux_agent.sh rules.conf archive_install.sh "$user@$ip":~
+  sshpass -p "$pass" ssh -n -o StrictHostKeyChecking=no "$user"@"$ip" "sudo sh linux_agent.sh" << EOF
+$elastic
+$kibana
 $finger
-$elastic_pass
+$password
 EOF
-  low=$(($low+1))
+  printf "ip (Enter when finished): "
+  read -r ip
 done

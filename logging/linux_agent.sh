@@ -7,9 +7,9 @@ fi
 
 hostname=$(hostname 2>/dev/null || hostnamectl hostname)
 if [ $# -lt 4 ]; then
-  printf "Elasticsearch Server ip: "
+  printf "Elastic Server ip: "
   read -r ip
-  printf "Kibana Dashboard ip: "
+  printf "Kibana Server ip: "
   read -r kibana_ip
   printf "CA Fingerprint: "
   read -r finger
@@ -29,7 +29,7 @@ else
   pass=$4
 fi
 
-if [ $# -lt 4 ]; then 
+if [ $# -lt 3 ]; then 
   if command -v apt > /dev/null 2>&1; then
     if ! [ -f "/etc/apt/sources.list.d/elastic-8.x.list" ]; then
       printf "Installing dependancies..."
@@ -70,9 +70,6 @@ EOL
     zypper --non-interactive install filebeat auditbeat packetbeat curl > /dev/null
   elif command -v apk > /dev/null 2>&1; then
     apk update > /dev/null 2>&1 && apk add curl > /dev/null 2>&1
-    if [ ! -e './alpine-beats.tar.gz' ]; then
-      curl -L -O -s https://github.com/ufsit/blue/raw/refs/heads/main/logging/alpine-beats.tar.gz 
-    fi
     tar xzf alpine-beats.tar.gz
     rm alpine-beats.tar.gz
     for beat in auditbeat filebeat packetbeat; do
@@ -135,15 +132,10 @@ EOL
     sed -i '50,77 d' /etc/auditbeat/auditbeat.yml
     rm -rf logs data
   else
-    sh archive_install.sh $ip $finger $pass $hostname
-    exit $?
+    sh archive_install.sh 
   fi
 else
-  if command -v apt > /dev/null 2>&1; then 
     apt-get install auditbeat filebeat packetbeat curl -y > /dev/null
-  else
-    yum install auditbeat filebeat packetbeat curl -y -q > /dev/null
-  fi 
 fi
 result=$(curl -k -u elastic:$pass -X POST "https://$ip:9200/_security/api_key?pretty" -H 'Content-Type: application/json' -d"
 {
@@ -165,9 +157,13 @@ id=$(echo "$result" | awk -F'"' '/"id"/{print $4}')
 key=$(echo "$result" | awk -F'"' '/api_key/{print $4}')
 api_key="$id:$key"
 
-for beat in auditbeat filebeat packetbeat; do
-  $beat setup -E setup.kibana.host="http://$kibana_ip:5601" -E setup.kibana.username="elastic" -E setup.kibana.password="$pass" -E output.elasticsearch.hosts="[\"https://$ip:9200\"]" -E output.elasticsearch.username="elastic" -E output.elasticsearch.password="$pass" -E output.elasticsearch.ssl.enabled="true" -E output.elasticsearch.ssl.ca_trusted_fingerprint="$finger" -c /etc/$beat/$beat.yml --path.home "/etc/$beat/"
-done
+
+if [ $# -gt 1 ] || command -v apk > /dev/null 2>/dev/null; then
+  printf "~-~-~-~-~-Setting up Indexes and Dashboards\n"
+  for beat in auditbeat filebeat packetbeat; do
+    $beat setup -E setup.kibana.host="http://$kibana_ip:5601" -E setup.kibana.username="elastic" -E setup.kibana.password="$pass" -E output.elasticsearch.hosts="[\"https://$ip:9200\"]" -E output.elasticsearch.username="elastic" -E output.elasticsearch.password="$pass" -E output.elasticsearch.ssl.enabled="true" -E output.elasticsearch.ssl.ca_trusted_fingerprint="$finger" -c /etc/$beat/$beat.yml --path.home "/etc/$beat/"
+  done
+fi
 
 for beat in auditbeat filebeat packetbeat; do
   cat >> /etc/$beat/$beat.yml << EOL
@@ -223,7 +219,16 @@ processors:
               destination.ip: 127.0.0.53
 EOL
 
-sed -i "s/  paths:/  recursive: true\n  exclude_files:\n  - '\.sw.$'\n  - '\.swpx$'\n  - '~$'\n  - '\/\#.*\#$'\n  - '\\.save$'\n  paths:\n  - \/tmp\n  - \/var\/tmp\n  - \/lib\/x86_64-linux-gnu\/security/g" /etc/auditbeat/auditbeat.yml
+sed -i "s/- \/etc/- \/etc\n  - \/tmp\n  - \/var\/tmp\n  - \/var\/spool\n  - \/var\/www\n  - \/lib\n  - \/lib64\n  - \/usr\/lib\n  - \/usr\/lib64\n  - \/var\/lib\n  - \/usr\/lib\n  - \/usr\/share\n  - \/usr\/local\n  - \/opt\n  recursive: true\n  exclude_files:\n  - '\.sw.$'\n  - '\.swpx$'\n  - '~$'\n  - '\.temp$'\n  - '\/\#.*\#$'\n  - '\\.save$'/g" /etc/auditbeat/auditbeat.yml
+
+# Configure filebeat for modesc
+sed -i "s/  id:.*/  id: modsec/g" /etc/filebeat/filebeat.yml
+sed -i "s/  enabled:.*/  enabled: true/g" /etc/filebeat/filebeat.yml
+sed -i "s/\- \/var\/log\/\*\.log/\- \/root\/blue\/webandaid\/*.json\n  processors:\n    \- decode_json_fields:\n        fields: \[\"message\"\]\n        target: \"\"\n        add_error_key: true\n        max_depth: 2\n        expand_keys: true\n        process_array: true\n        overwrite_keys: true\n/g" /etc/filebeat/filebeat.yml
+
+# Automatically ingest system logs (ex: auth.log)
+filebeat -c /etc/filebeat/filebeat.yml modules enable system
+sed -i "s/false/true/g" /etc/filebeat/modules.d/system.yml
 
 for beat in auditbeat filebeat packetbeat; do
   sed -i 's/hosts: \["localhost/# hosts: \["localhost/g' /etc/$beat/$beat.yml
@@ -236,22 +241,38 @@ for beat in auditbeat filebeat packetbeat; do
     printf "Output test failed for $beat\n"
   fi
 done
-
-if [ -e './rules.conf' ]; then
-  mv rules.conf /etc/auditbeat/audit.rules.d/rules.conf
-else
-  curl -q https://raw.githubusercontent.com/ufsit/blue/refs/heads/main/logging/rules.conf -o /etc/auditbeat/audit.rules.d/rules.conf
-fi
+mv rules.conf /etc/auditbeat/audit.rules.d/
 
 printf "Starting beats...\n"
 
 if command -v systemctl > /dev/null 2>&1; then
+  systemctl status auditd > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    service auditd stop
+    if [ $? -ne 0 ]; then
+      kill -9 $(ps -aux | grep '/auditd' | grep root | awk '{print $2}')
+    fi
+    systemctl disable auditd
+  fi
+  systemctl status graylog* > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    systemctl disable --now gray*
+  fi
+  systemctl status wazuh* > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    systemctl disable --now wazuh*
+  fi
+  systemctl status splunk* > /dev/null 2>/dev/null
+  if [ $? -eq 0 ]; then
+    systemctl disable --now splunk*
+  fi
   systemctl daemon-reload > /dev/null && systemctl enable --now auditbeat filebeat > /dev/null
   if [ $(auditbeat show audit-rules | wc -l) -eq 1 ]; then
     systemctl restart auditbeat
   fi
 elif command -v service > /dev/null 2>&1; then
   for beat in auditbeat filebeat; do
+    service auditd stop
     service $beat start
   done
 fi
