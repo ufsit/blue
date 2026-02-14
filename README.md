@@ -5,6 +5,7 @@ Competition Tools for UF CCDC.
  * `http` - Miscellaneous web-related scripts.
  * `injects` - Templates for inject tasks
  * `ipcatalog` - IP cataloging tool. Licensed under GPLv2 only (see `ipcatalog/README.md` for more details)
+ * `linux_orchestration` - Run commands and premade scripts across Linux machines
  * `logging` - Our scripts to set up the ELK stack
  * `osdestroyer4000` - Licensed under GPLv3 only (see `osdestroyer4000/README.md` for more details)
  * `portinventory` - The PortInventory tool. Licensed under AGPLv3 only (see `portinventory/README.md` for more details)

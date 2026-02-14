@@ -256,6 +256,60 @@ getBaks() {
         printf "%s\n\n" "$log" 
 }
 
+genNmapIps() {
+        while true; do
+            printf "\nIgnore Admin Init? [y/n]:\t"
+            read isFirstRoll
+            case "$isFirstRoll" in
+                y) 
+                        return
+                        ;;
+                n) 
+                        break 
+                        ;;
+                *)
+                        ;;
+            esac     
+        done
+        
+        
+        while :; do
+                rm -f nmap_ips.txt
+                while :; do
+                        printf "IP Address (x to stop):\t\t"
+                        read -r ip;
+                        case "$ip" in
+                                x) break ;;
+                                *) echo $ip >> nmap_ips.txt ;;
+                        esac
+                done
+                
+                printf "\n----- nmap_ips.txt Content -----\n"
+                cat nmap_ips.txt
+                printf '\nConfirm? [y/N]: '
+                read isInitNmapIpsGood
+                case "$isInitNmapIpsGood" in
+                        y) break ;;
+                        *) ;;
+                esac
+        done
+        
+}
+
+nmap() {
+        log="nmap_log/nmap_$(date +"%H-%M-%S").out"
+        touch $log
+        
+        genNmapIps
+
+        while read -r ip ; do
+                mkdir -p ./nmap_log/$ip
+                printf -- "----- MEOW: %s -----\n" "$ip" | tee -a "$log"
+                sudo nmap -Pn -sC -sV -O -p- -oA ./nmap_log/"$ip"/"$ip" "$ip" >> "$log"
+        done < nmap_ips.txt
+        printf "%s\n\n" "$log"        
+}
+
 while true; do
     printf "~~~~~ Welcome to meow! ~~~~~~\n"
     printf "[1] Password Roll\n"
@@ -263,6 +317,7 @@ while true; do
     printf "[3] Deploy Elastic Agent\n"
     printf "[4] Deploy Suricata\n"
     printf "[5] Get Backups\n"
+    printf "[6] Nmap Scan\n"
     printf "\n"
     printf "[a] Command\n"
     printf "[b] Script\n"
@@ -284,6 +339,9 @@ while true; do
                 ;;
         5)
                 getBaks
+                ;;
+        6)
+                nmap
                 ;;
         a)
                 runCmd
